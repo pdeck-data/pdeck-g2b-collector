@@ -12,7 +12,7 @@ load_dotenv()
 SERVICE_KEY = os.getenv('API_KEY')
 SLACK_TOKEN = os.getenv('SLACK_TOKEN')
 SLACK_CHANNEL_ID = os.getenv('SLACK_CHANNEL_ID')
-BASE_URL = "http://apis.data.go.kr/1230000/ao/CntrctInfoService"
+BASE_URL = "https://apis.data.go.kr/1230000/ao/CntrctInfoService"
 
 PROGRESS_FILE = 'data/logs/progress.json'
 MAX_DAILY_CALLS = 500
