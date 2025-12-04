@@ -2,15 +2,15 @@ name: G2B Auto Collector & Drive Uploader
 
 on:
   schedule:
-    - cron: "0 15 * * *" # 한국시간 00:00 자동 실행 (UTC 기준 15:00)
-  workflow_dispatch: # 수동 실행도 가능
+    - cron: "0 15 * * *" # 한국시간 00:00 (UTC 15시)
+  workflow_dispatch: {} # 수동 실행 가능
 
 jobs:
   g2b_job:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v3
 
       - name: Set up Python
@@ -26,7 +26,7 @@ jobs:
         run: |
           echo "${{ secrets.GOOGLE_CREDENTIALS }}" > service_account.json
 
-      - name: Run collector
+      - name: Run G2B Collector
         run: |
           python api-collector/collectors/g2b/collect_all.py
 
