@@ -2,8 +2,8 @@ name: G2B Auto Collector & Drive Uploader
 
 on:
   schedule:
-    - cron: "0 15 * * *" # 한국시간 00:00 실행 (UTC 기준 15:00)
-  workflow_dispatch: {} # 수동 실행 가능
+    - cron: "0 15 * * *"
+  workflow_dispatch: {}
 
 jobs:
   g2b_job:
@@ -20,7 +20,7 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r collectors/g2b/requirements.txt
+          pip install -r api-collector/collectors/g2b/requirements.txt
 
       - name: Create service_account.json
         run: |
@@ -28,8 +28,8 @@ jobs:
 
       - name: Run G2B Collector
         run: |
-          python collectors/g2b/collect_all.py
+          python api-collector/collectors/g2b/collect_all.py
 
       - name: Upload to Google Drive
         run: |
-          python collectors/g2b/upload_to_drive.py
+          python api-collector/collectors/g2b/upload_to_drive.py
