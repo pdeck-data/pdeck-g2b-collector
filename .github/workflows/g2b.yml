@@ -2,46 +2,34 @@ name: G2B Auto Collector & Drive Uploader
 
 on:
   schedule:
-    - cron: "0 15 * * *" # 한국시간 00:00 (UTC 15:00)
-  workflow_dispatch: {} # 수동 실행도 가능
+    - cron: "0 15 * * *" # 한국시간 00:00 실행 (UTC 기준 15:00)
+  workflow_dispatch: {} # 수동 실행 가능
 
 jobs:
   g2b_job:
     runs-on: ubuntu-latest
 
-    env:
-      API_KEY: ${{ secrets.API_KEY }}
-      SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
-      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
-      THREAD_TS_FILE: "thread_ts.txt" # Slack thread tracking용
-
     steps:
-      # 1) GitHub Repo Checkout
       - name: Checkout repository
         uses: actions/checkout@v3
 
-      # 2) Python 설정
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: "3.11"
 
-      # 3) 패키지 설치
       - name: Install dependencies
         run: |
           pip install -r api-collector/collectors/g2b/requirements.txt
 
-      # 4) Google Credentials 파일 만들기
       - name: Create service_account.json
         run: |
           echo "${{ secrets.GOOGLE_CREDENTIALS }}" > service_account.json
 
-      # 5) G2B Collector 실행
       - name: Run G2B Collector
         run: |
-          python collectors/g2b/collect_all.py
+          python api-collector/collectors/g2b/collect_all.py
 
-      # 6) Google Drive 업로드
       - name: Upload to Google Drive
         run: |
-          python collectors/g2b/upload_to_drive.py
+          python api-collector/collectors/g2b/upload_to_drive.py
