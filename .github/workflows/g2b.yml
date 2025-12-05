@@ -28,25 +28,26 @@ jobs:
           echo "SLACK_CHANNEL_ID=${{ secrets.SLACK_CHANNEL_ID }}" >> $GITHUB_ENV
           echo "API_KEY=${{ secrets.API_KEY }}" >> $GITHUB_ENV
 
+      # ⭐ JSON 파일이 깨지지 않게 반드시 printf 사용
       - name: Create service_account.json
         run: |
-          echo "${{ secrets.GOOGLE_CREDENTIALS }}" > service_account.json
+          printf "%s" "${{ secrets.GOOGLE_CREDENTIALS }}" > service_account.json
 
       - name: Export Google Drive folder ID
         run: |
           echo "GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}" >> $GITHUB_ENV
 
-      # ⭐ 1) Drive에서 progress.json 다운로드
+      # ⭐ 1) 이어받기 progress.json 다운로드
       - name: Download progress.json
         run: |
           python api-collector/collectors/g2b/download_progress.py
 
-      # ⭐ 2) 이어받기 수집 수행
+      # ⭐ 2) 이어받기 기반 G2B 수집 실행
       - name: Run G2B Collector
         run: |
           python api-collector/collectors/g2b/collect_all.py
 
-      # ⭐ 3) 새 progress.json 업로드
+      # ⭐ 3) 업데이트된 progress.json 업로드
       - name: Upload updated progress.json
         run: |
           python api-collector/collectors/g2b/upload_progress.py
