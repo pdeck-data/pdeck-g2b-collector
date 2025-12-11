@@ -1,79 +1,42 @@
-name: G2B Auto Collector & Drive Uploader
+name: G2B Auto Collector
 
 on:
   schedule:
-    - cron: "0 15 * * *" # KST 00:00 실행
+    - cron: "0 15 * * *" # 매일 00:00 KST 실행 (UTC 15시)
   workflow_dispatch:
 
-defaults:
-  run:
-    working-directory: api-collector/collectors/g2b
-
 jobs:
-  g2b_job:
+  g2b-job:
     runs-on: ubuntu-latest
+
+    env:
+      GDRIVE_PROGRESS_FILE_ID: ${{ secrets.GDRIVE_PROGRESS_FILE_ID }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.10"
 
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
 
-      - name: Export Slack/API keys to env
-        run: |
-          echo "SLACK_TOKEN=${{ secrets.SLACK_TOKEN }}" >> $GITHUB_ENV
-          echo "SLACK_CHANNEL_ID=${{ secrets.SLACK_CHANNEL_ID }}" >> $GITHUB_ENV
-          echo "API_KEY=${{ secrets.API_KEY }}" >> $GITHUB_ENV
-          echo "GDRIVE_FOLDER_ID=${{ secrets.GDRIVE_FOLDER_ID }}" >> $GITHUB_ENV
-
-      # -------------------------
-      # 🔐 Base64 → JSON 디코딩
-      # -------------------------
       - name: Create service_account.json
-        env:
-          GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
         run: |
-          python3 -c "import base64, os; open('service_account.json','wb').write(base64.b64decode(os.environ['GOOGLE_CREDENTIALS']))"
+          echo "${{ secrets.GDRIVE_SERVICE_ACCOUNT_JSON }}" > service_account.json
 
-      # -------------------------
-      # 📁 로그 및 데이터 폴더 생성
-      # -------------------------
-      - name: Create Log & Raw Directories
+      - name: Download progress.json from Google Drive
         run: |
-          mkdir -p data/logs
-          mkdir -p data/raw
+          python collectors/g2b/download_progress.py
 
-      # -------------------------
-      # 📥 Google Drive → progress.json 다운로드
-      # -------------------------
-      - name: Download progress.json
-        run: |
-          python download_progress.py
-
-      # -------------------------
-      # 🚀 G2B 데이터 수집 실행
-      # -------------------------
       - name: Run G2B Collector
         run: |
-          python collect_all.py
+          python collectors/g2b/collect_all.py
 
-      # -------------------------
-      # 📤 progress.json 업로드
-      # -------------------------
-      - name: Upload updated progress.json
+      - name: Upload updated progress.json to Google Drive
         run: |
-          python upload_progress.py
-
-      # -------------------------
-      # 📤 XML 데이터 Google Drive 업로드
-      # -------------------------
-      - name: Upload Collected Data to Drive
-        run: |
-          python upload_to_drive.py
+          python collectors/g2b/upload_progress.py

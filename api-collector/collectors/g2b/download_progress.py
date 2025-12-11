@@ -1,77 +1,30 @@
-from __future__ import print_function
 import os
-from google.oauth2.service_account import Credentials
-from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload
-import io
-import sys
+from utils.drive import download_file
+from utils.logger import log
+from utils.slack import send_slack_message
 
-FOLDER_ID = os.getenv("GDRIVE_FOLDER_ID")
-LOCAL_PATH = "data/logs/progress.json"
+# progress.json 로컬 저장 위치
+LOCAL_PATH = "collectors/g2b/progress.json"
 
-
-def download_progress():
-    # --------------------------
-    # 🔥 환경변수 확인
-    # --------------------------
-    if not FOLDER_ID:
-        print("❌ ERROR: GDRIVE_FOLDER_ID is missing. Check GitHub Secrets.")
-        return False
-
-    if not os.path.exists("service_account.json"):
-        print("❌ ERROR: service_account.json is missing!")
-        return False
-
-    # --------------------------
-    # 🔐 Google 인증
-    # --------------------------
-    try:
-        creds = Credentials.from_service_account_file(
-            "service_account.json",
-            scopes=["https://www.googleapis.com/auth/drive"]
-        )
-        service = build('drive', 'v3', credentials=creds)
-    except Exception as e:
-        print(f"❌ Google Drive auth failed: {e}")
-        return False
-
-    # --------------------------
-    # 🔎 progress.json 찾기
-    # --------------------------
-    try:
-        query = f"'{FOLDER_ID}' in parents and name='progress.json'"
-        res = service.files().list(q=query, fields="files(id,name)").execute()
-        files = res.get("files", [])
-    except Exception as e:
-        print(f"❌ Drive query failed: {e}")
-        return False
-
-    if not files:
-        print("⚠ No progress.json found on Google Drive → fresh start.")
-        return False
-
-    file_id = files[0]['id']
-
-    # --------------------------
-    # ⬇ 다운로드
-    # --------------------------
-    try:
-        request = service.files().get_media(fileId=file_id)
-        os.makedirs(os.path.dirname(LOCAL_PATH), exist_ok=True)
-
-        with io.FileIO(LOCAL_PATH, "wb") as fh:
-            downloader = MediaIoBaseDownload(fh, request)
-            done = False
-            while not done:
-                status, done = downloader.next_chunk()
-
-        print("✅ progress.json downloaded successfully")
-        return True
-
-    except Exception as e:
-        print(f"❌ Download failed: {e}")
-        return False
-
+# Google Drive File ID (GitHub Secrets에서 불러옴)
+DRIVE_FILE_ID = os.getenv("GDRIVE_PROGRESS_FILE_ID")
 
 if __name__ == "__main__":
-    download_progress()
+    log("🔽 Downloading progress.json from Google Drive...")
+
+    # Drive 파일 ID 누락 체크
+    if not DRIVE_FILE_ID:
+        log("❌ ERROR: 환경변수 GDRIVE_PROGRESS_FILE_ID가 설정되지 않았습니다.")
+        raise SystemExit(1)
+
+    # 로컬 파일 존재하면 삭제 (Drive 버전을 항상 우선 적용)
+    if os.path.exists(LOCAL_PATH):
+        os.remove(LOCAL_PATH)
+        log("🗑 기존 progress.json 삭제 완료")
+
+    success = download_file(DRIVE_FILE_ID, LOCAL_PATH)
+
+    if success:
+        log("✅ progress.json 다운로드 완료")
+    else:
+        log("⚠️ progress.json 다운로드 실패 — 기본 progress.json이 사용될 수 있음")

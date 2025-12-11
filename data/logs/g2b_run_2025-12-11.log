@@ -1,0 +1,4 @@
+Traceback (most recent call last):
+  File "C:\Users\ekapr\Documents\GitHub\api-collector\api-collector\collectors\g2b\collect_all.py", line 3, in <module>
+    from utils.logger import log
+ModuleNotFoundError: No module named 'utils'
