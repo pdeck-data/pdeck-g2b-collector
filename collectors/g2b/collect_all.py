@@ -15,7 +15,7 @@ def load_progress():
     """progress.json 읽기"""
     if not os.path.exists(PROGRESS_PATH):
         log("⚠️ progress.json 파일이 없어 기본 설정을 사용합니다.")
-        return {"last_year": 2024, "last_month": 1}
+        return {"current_year": 2024, "current_month": 1, "total_collected": 0}
 
     with open(PROGRESS_PATH, "r", encoding="utf-8") as f:
         progress = json.load(f)
@@ -23,11 +23,6 @@ def load_progress():
     # 디버깅: 현재 키 출력
     log(f"📋 progress.json의 키들: {list(progress.keys())}")
     log(f"📋 progress.json 내용: {progress}")
-
-    # 구조 호환성 체크
-    if "last_year" not in progress:
-        log("⚠️ last_year 키가 없어서 기본값으로 초기화합니다.")
-        return {"last_year": 2024, "last_month": 1}
 
     return progress
 
@@ -50,8 +45,8 @@ if __name__ == "__main__":
 
     # 1. 이전 진행 상황 로드
     progress = load_progress()
-    year = progress["last_year"]
-    month = progress["last_month"]
+    year = progress.get("current_year", 2024)  # 실제 키 이름 사용
+    month = progress.get("current_month", 1)   # 실제 키 이름 사용
 
     log(f"📌 현재 진행 월: {year}-{month}")
 
@@ -65,13 +60,17 @@ if __name__ == "__main__":
     # 3. 수집 결과 로그
     if items:
         log(f"📈 신규 수집 건수: {len(items)}건")
+        # 기존 total_collected에 추가
+        progress["total_collected"] = progress.get(
+            "total_collected", 0) + len(items)
     else:
         log("ℹ️ 신규 데이터 없음 또는 수집 실패")
 
     # 4. 다음 달로 업데이트
     next_year, next_month = increment_month(year, month)
-    progress["last_year"] = next_year
-    progress["last_month"] = next_month
+    progress["current_year"] = next_year    # 실제 키 이름 사용
+    progress["current_month"] = next_month  # 실제 키 이름 사용
+    progress["last_run_date"] = "2025-12-15"  # 오늘 날짜로 업데이트
 
     log(f"➡️ 다음 진행 월: {next_year}-{next_month}")
 
