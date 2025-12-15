@@ -1,13 +1,13 @@
-import io
 import os
+import io
+import json
 from google.oauth2.service_account import Credentials
 from googleapiclient.discovery import build
-from googleapiclient.http import MediaIoBaseDownload, MediaFileUpload
+from googleapiclient.http import MediaIoBaseDownload, MediaIoBaseUpload
+from utils.logger import log
 
-# 공통 인증 생성
 
-
-def _get_drive_service():
+def get_drive_service():
     if not os.path.exists("service_account.json"):
         raise FileNotFoundError("❌ service_account.json not found")
 
@@ -18,46 +18,44 @@ def _get_drive_service():
     return build("drive", "v3", credentials=creds)
 
 
-# 파일 다운로드
-def download_file(file_id, local_path):
+def download_file(file_id: str, output_path: str):
     try:
-        service = _get_drive_service()
+        service = get_drive_service()
         request = service.files().get_media(fileId=file_id)
 
-        os.makedirs(os.path.dirname(local_path), exist_ok=True)
+        fh = io.FileIO(output_path, "wb")
+        downloader = MediaIoBaseDownload(fh, request)
 
-        with io.FileIO(local_path, "wb") as fh:
-            downloader = MediaIoBaseDownload(fh, request)
-            done = False
-            while not done:
-                _, done = downloader.next_chunk()
+        done = False
+        while not done:
+            _, done = downloader.next_chunk()
 
-        print(f"✅ Downloaded: {local_path}")
+        log(f"📥 Google Drive 파일 다운로드 완료 → {output_path}")
         return True
 
     except Exception as e:
-        print(f"❌ Download error: {e}")
+        log(f"❌ Download error: {e}")
         return False
 
 
-# 파일 업로드 (기존 파일 덮어쓰기)
-def upload_file(local_path, file_id):
+def upload_file(local_path: str, file_id: str):
     try:
-        if not os.path.exists(local_path):
-            raise FileNotFoundError(f"{local_path} does not exist")
+        service = get_drive_service()
 
-        service = _get_drive_service()
-
-        media = MediaFileUpload(local_path, resumable=True)
+        media = MediaIoBaseUpload(
+            io.FileIO(local_path, "rb"),
+            mimetype="application/json",
+            resumable=True
+        )
 
         service.files().update(
             fileId=file_id,
             media_body=media
         ).execute()
 
-        print(f"⬆️ Uploaded: {local_path}")
+        log("📤 Google Drive 업로드 완료")
         return True
 
     except Exception as e:
-        print(f"❌ Upload error: {e}")
+        log(f"❌ Upload error: {e}")
         return False
