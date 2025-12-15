@@ -32,63 +32,27 @@ jobs:
 
       - name: Create service_account.json
         run: |
-          echo "${{ secrets.GOOGLE_CREDENTIALS }}" > service_account.json
-          echo "✔ service_account.json created"
+          echo "${{ secrets.GOOGLE_CREDENTIALS }}" | base64 -d > service_account.json
+          echo "✔ service_account.json created and decoded"
 
       - name: Add PYTHONPATH
         run: |
           echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
 
-      - name: Debug Google credentials content
+      - name: Verify Google credentials
         run: |
-          echo "=== Credentials 내용 확인 ==="
-          echo "파일 크기: $(wc -c < service_account.json) bytes"
+          echo "=== 디코딩 후 확인 ==="
           echo "첫 5글자: $(head -c 5 service_account.json)"
-          echo "파일 타입: $(file service_account.json)"
-          if python -c "import json; json.load(open('service_account.json'))" 2>/dev/null; then
-            echo "✔ 유효한 JSON"
-            python -c "import json; data=json.load(open('service_account.json')); print(f'Type: {data.get(\"type\", \"없음\")}'); print(f'Project ID: {data.get(\"project_id\", \"없음\")}')"
+          if python -c "import json; data=json.load(open('service_account.json')); print(f'✔ 유효한 JSON - Type: {data.get(\"type\")}')" 2>/dev/null; then
+            echo "✔ Google 인증 정보 로드 성공"
           else
-            echo "❌ JSON 형식이 아님"
-            echo "실제 내용 (첫 200자):"
-            head -c 200 service_account.json
-          fi
-
-      - name: Backup existing progress.json
-        run: |
-          if [ -f "progress.json" ]; then
-            cp progress.json progress.json.backup
-            echo "✔ 기존 파일 백업 완료"
-          else
-            echo "ℹ️ 기존 progress.json 없음"
-          fi
-
-      - name: Download progress.json or restore backup
-        run: |
-          echo "=== 다운로드 시도 ==="
-          if python collectors/g2b/download_progress.py; then
-            echo "✔ Google Drive에서 다운로드 성공"
-          else
-            echo "⚠️ Google Drive 다운로드 실패"
-            if [ -f "progress.json.backup" ]; then
-              mv progress.json.backup progress.json
-              echo "✔ 백업 파일 복구 완료"
-            else
-              echo "❌ 백업 파일도 없음"
-              exit 1
-            fi
-          fi
-
-      - name: Verify progress.json exists
-        run: |
-          if [ -f "progress.json" ]; then
-            echo "✔ progress.json 존재 확인"
-            echo "파일 내용:"
-            cat progress.json
-          else
-            echo "❌ progress.json 파일이 없음 - 중단"
+            echo "❌ 아직도 JSON 문제"
             exit 1
           fi
+
+      - name: Download progress.json
+        run: |
+          python collectors/g2b/download_progress.py
 
       - name: Run collector
         run: |
@@ -96,4 +60,4 @@ jobs:
 
       - name: Upload updated progress.json
         run: |
-          python collectors/g2b/upload_progress.py || echo "⚠️ Upload failed but continuing"
+          python collectors/g2b/upload_progress.py
