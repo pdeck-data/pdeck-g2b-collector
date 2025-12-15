@@ -9,6 +9,14 @@ jobs:
   g2b-job:
     runs-on: ubuntu-latest
 
+    env:
+      API_KEY: ${{ secrets.API_KEY }}
+      GDRIVE_FOLDER_ID: ${{ secrets.GDRIVE_FOLDER_ID }}
+      GDRIVE_PROGRESS_FILE_ID: ${{ secrets.GDRIVE_PROGRESS_FILE_ID }}
+      GOOGLE_CREDENTIALS: ${{ secrets.GOOGLE_CREDENTIALS }}
+      SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+      SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -22,21 +30,18 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Set PYTHONPATH
+      - name: Add PYTHONPATH
         run: |
-          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
+          echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
 
       - name: Download progress.json
         run: |
-          export PYTHONPATH=$(pwd)
           python collectors/g2b/download_progress.py
 
       - name: Run collector
         run: |
-          export PYTHONPATH=$(pwd)
           python collectors/g2b/collect_all.py
 
       - name: Upload updated progress.json
         run: |
-          export PYTHONPATH=$(pwd)
           python collectors/g2b/upload_progress.py
