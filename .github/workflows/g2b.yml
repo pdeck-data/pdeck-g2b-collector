@@ -50,9 +50,16 @@ jobs:
             exit 1
           fi
 
-      - name: Download progress.json
+      - name: Download and move progress.json
         run: |
           python collectors/g2b/download_progress.py
+          if [ -f "collectors/g2b/progress.json" ]; then
+            mv collectors/g2b/progress.json progress.json
+            echo "✔ progress.json을 루트로 이동 완료"
+          else
+            echo "❌ 다운로드된 파일을 찾을 수 없음"
+            exit 1
+          fi
 
       - name: Run collector
         run: |
