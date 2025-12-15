@@ -1,41 +1,36 @@
+import os
 import requests
 from utils.logger import log
 
-BASE_URL = "https://www.g2b.go.kr/api/... (실제 endpoint로 교체)"
+API_KEY = os.getenv("API_KEY")
 
 
-def get_monthly_data(year, month):
-    """
-    특정 연/월 데이터를 수집하고 item 리스트를 반환하는 템플릿
-    """
-    url = f"{BASE_URL}?year={year}&month={month}"
+def get_monthly_data(year: int, month: int):
+    """나라장터 API에서 해당 월 데이터 조회 — 템플릿"""
 
-    log(f"🌐 Request: {url}")
+    if not API_KEY:
+        raise ValueError("❌ API_KEY 환경변수가 설정되지 않았습니다.")
+
+    # 월 01, 02 같은 형태로 맞춤
+    month_str = f"{month:02d}"
+
+    url = f"https://apis.data.go.kr/1230000/SomeEndpoint?" \
+          f"serviceKey={API_KEY}&pblntfNo={year}{month_str}"
+
+    log(f"🌐 API 요청: {url}")
 
     try:
-        response = requests.get(url, timeout=20)
-        response.raise_for_status()
+        res = requests.get(url, timeout=20)
+        res.raise_for_status()
     except Exception as e:
-        log(f"❌ API Error: {e}")
+        log(f"❌ API 요청 실패: {e}")
         return []
 
-    # ↓↓ 실제 XML 파싱이 들어갈 부분 ↓↓
-    try:
-        # xml → item 리스트로 변환
-        items = parse_xml_to_items(response.text)
-    except Exception as e:
-        log(f"❌ XML Parse Error: {e}")
-        return []
+    # TODO: 실제 XML → dict 파싱 넣기
+    # items = parse_xml(res.text)
 
-    log(f"📦 {len(items)} items collected")
+    # 지금은 예시로 빈 리스트 반환
+    items = []
+
+    log(f"📦 API 응답 처리 완료 ({len(items)}건)")
     return items
-
-
-# 파서 템플릿
-def parse_xml_to_items(xml_text):
-    """
-    XML을 파싱해서 item 리스트로 만드는 템플릿 메서드.
-    실제 구조에 맞게 커스터마이즈 필요.
-    """
-    # 예시 반환
-    return []
