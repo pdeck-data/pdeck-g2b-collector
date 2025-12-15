@@ -22,23 +22,21 @@ jobs:
         run: |
           pip install -r requirements.txt
 
-      - name: Add PYTHONPATH
+      - name: Set PYTHONPATH
         run: |
-          echo "PYTHONPATH=${{ github.workspace }}" >> $GITHUB_ENV
-
-      - name: Verify PYTHONPATH
-        run: |
-          echo "Working directory: $(pwd)"
-          python -c "import sys; [print(f'Python path: {p}') for p in sys.path[:3]]"
+          echo "PYTHONPATH=$(pwd)" >> $GITHUB_ENV
 
       - name: Download progress.json
         run: |
+          export PYTHONPATH=$(pwd)
           python collectors/g2b/download_progress.py
 
       - name: Run collector
         run: |
+          export PYTHONPATH=$(pwd)
           python collectors/g2b/collect_all.py
 
       - name: Upload updated progress.json
         run: |
+          export PYTHONPATH=$(pwd)
           python collectors/g2b/upload_progress.py
