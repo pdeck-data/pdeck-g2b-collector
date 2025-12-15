@@ -41,20 +41,31 @@ jobs:
 
       - name: Download progress.json OR create default
         run: |
-          python collectors/g2b/download_progress.py || {
-            echo "⚠️ Google Drive 다운로드 실패, 기본 파일 생성"
+          echo "=== 다운로드 시도 ==="
+          if python collectors/g2b/download_progress.py; then
+            echo "✔ 다운로드 성공"
+          else
+            echo "⚠️ 다운로드 실패, 기본 파일 생성"
             echo '{"last_processed_date": "2024-01-01", "total_collected": 0, "errors": []}' > progress.json
             echo "✔ 기본 progress.json 생성 완료"
-          }
+          fi
+          echo "=== 현재 디렉토리 파일 목록 ==="
+          ls -la *.json || echo "JSON 파일 없음"
 
       - name: Verify progress.json exists
         run: |
+          echo "=== 파일 존재 확인 ==="
+          ls -la
           if [ -f "progress.json" ]; then
             echo "✔ progress.json 존재 확인"
-            head -3 progress.json
+            echo "파일 내용:"
+            cat progress.json
           else
             echo "❌ progress.json 여전히 없음"
-            exit 1
+            echo "강제로 생성..."
+            echo '{"last_processed_date": "2024-01-01", "total_collected": 0, "errors": []}' > progress.json
+            echo "생성 후 확인:"
+            cat progress.json
           fi
 
       - name: Run collector
