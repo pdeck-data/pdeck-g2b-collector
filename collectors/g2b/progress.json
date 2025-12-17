@@ -1,8 +1,8 @@
 {
-  "current_업무": "물품",
+  "current_job": "물품",
   "current_year": 2014,
-  "current_month": 1,
-  "daily_api_calls": 0,
-  "last_run_date": "2025-12-15",
-  "total_collected": 1779133
+  "current_month": 5,
+  "daily_api_calls": 500,
+  "total_collected": 1779133,
+  "last_run_date": "2025-12-15"
 }
