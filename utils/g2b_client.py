@@ -3,7 +3,20 @@ import time
 import requests
 import calendar
 import xml.etree.ElementTree as ET
-from utils.logger import log
+from requests.adapters import HTTPAdapter
+from requests.packages.urllib3.util.retry import Retry
+import random
+
+# logger 임포트 (같은 utils 폴더 내)
+try:
+    from .logger import log
+except ImportError:
+    try:
+        from utils.logger import log
+    except ImportError:
+        # 로거가 없으면 print로 대체
+        def log(msg):
+            print(f"[LOG] {msg}")
 
 
 class G2BClient:
@@ -20,10 +33,31 @@ class G2BClient:
 
     def __init__(self, api_key):
         self.api_key = api_key
+        self.session = self._create_session()
+
+    def _create_session(self):
+        """강화된 세션 설정 - 재시도 및 타임아웃 최적화"""
+        session = requests.Session()
+
+        # 재시도 전략 설정
+        retry_strategy = Retry(
+            total=3,
+            # 408 추가 (Request Timeout)
+            status_forcelist=[429, 500, 502, 503, 504, 408],
+            method_whitelist=["HEAD", "GET", "OPTIONS"],
+            backoff_factor=2,  # 2초 -> 4초 -> 8초
+            raise_on_status=False
+        )
+
+        adapter = HTTPAdapter(max_retries=retry_strategy)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+        return session
 
     def fetch_data(self, job_type, year, month, retries=5):
         """
-        API 호출 및 정밀한 에러 핸들링
+        API 호출 및 정밀한 에러 핸들링 - 타임아웃 최적화
         """
         if not self.api_key:
             raise ValueError("API_KEY가 설정되지 않았습니다.")
@@ -52,13 +86,32 @@ class G2BClient:
 
         for attempt in range(1, retries + 1):
             try:
-                # 타임아웃 30초 설정
-                response = requests.get(url, params=params, timeout=30)
+                log(f"🔄 API 호출 시도 {attempt}/{retries}: {job_type} {year}-{month:02d}")
+
+                # 📈 점진적 타임아웃 증가 전략
+                timeout_seconds = 60 + (attempt * 30)  # 60초 -> 90초 -> 120초...
+
+                # 랜덤 대기 (서버 부하 분산)
+                if attempt > 1:
+                    wait_time = random.uniform(3, 8) + (attempt * 2)
+                    log(f"⏳ {wait_time:.1f}초 대기 중...")
+                    time.sleep(wait_time)
+
+                # HTTP 요청
+                response = self.session.get(
+                    url,
+                    params=params,
+                    timeout=timeout_seconds,
+                    headers={
+                        'User-Agent': 'G2B-Collector/1.0',
+                        'Accept': 'application/xml',
+                        'Connection': 'keep-alive'
+                    }
+                )
                 response.encoding = 'utf-8'  # 한글 깨짐 방지
 
                 if response.status_code != 200:
                     log(f"⚠ HTTP 오류 {response.status_code} (시도 {attempt}/{retries})")
-                    time.sleep(2 + attempt)
                     continue
 
                 # XML 파싱 및 결과 코드 분석
@@ -70,12 +123,15 @@ class G2BClient:
                     result_msg = root.findtext('.//resultMsg')
 
                     if not result_code:
-                        # 가끔 HTML 에러가 올 때가 있음
-                        raise ValueError("XML 구조가 올바르지 않음 (resultCode 누락)")
+                        log(f"⚠ XML 구조 이상 - resultCode 누락")
+                        continue
+
+                    log(f"📋 API 응답 코드: {result_code} ({result_msg})")
 
                     # [Case 1] 정상 성공 (00)
                     if result_code == '00':
                         items = root.findall('.//item')
+                        log(f"✅ 성공: {len(items)}건 수집")
                         return {
                             'success': True,
                             'code': '00',
@@ -86,6 +142,7 @@ class G2BClient:
 
                     # [Case 2] 데이터 없음 (03) -> 성공으로 간주하되 데이터는 비움
                     elif result_code == '03':
+                        log(f"ℹ️ 데이터 없음 (정상)")
                         return {
                             'success': True,
                             'code': '03',
@@ -96,6 +153,7 @@ class G2BClient:
 
                     # [Case 3] 트래픽/인증 에러 (20, 22, 99) -> 즉시 중단 필요
                     elif result_code in ['20', '21', '22', '99']:
+                        log(f"🚨 API 제한 오류: {result_msg}")
                         return {
                             'success': False,
                             'code': result_code,
@@ -104,25 +162,31 @@ class G2BClient:
 
                     # [Case 4] 서버 에러 (05 등) -> 재시도 필요
                     else:
-                        log(f"⚠ API 서버 메시지: {result_msg} (코드: {result_code})")
-                        # 루프를 돌며 재시도
+                        log(f"⚠ API 서버 메시지: {result_msg} (코드: {result_code}) - 재시도")
+                        continue
 
-                except ET.ParseError:
-                    log(f"⚠ XML 파싱 실패 (시도 {attempt}/{retries})")
+                except ET.ParseError as e:
+                    log(f"⚠ XML 파싱 실패: {str(e)[:100]} (시도 {attempt}/{retries})")
+                    continue
+
+            except requests.Timeout as e:
+                log(f"⏱️ 타임아웃 발생 ({timeout_seconds}초): {str(e)} (시도 {attempt}/{retries})")
+                continue
+
+            except requests.ConnectionError as e:
+                log(f"🌐 연결 오류: {str(e)[:100]} (시도 {attempt}/{retries})")
+                continue
 
             except requests.RequestException as e:
-                log(f"⚠ 네트워크 오류: {e} (시도 {attempt}/{retries})")
-
-            # 재시도 대기
-            if attempt < retries:
-                time.sleep(2 + attempt)
+                log(f"⚠ 네트워크 오류: {str(e)[:100]} (시도 {attempt}/{retries})")
+                continue
 
         # 모든 재시도 실패 시
-        return {'success': False, 'code': 'TIMEOUT', 'msg': '최대 재시도 횟수 초과'}
+        log(f"❌ {retries}회 시도 후 실패")
+        return {'success': False, 'code': 'TIMEOUT', 'msg': f'최대 재시도 횟수 초과 ({retries}회)'}
+
 
 # 호환성 래퍼 함수
-
-
 def fetch_raw_data(job_type, year, month):
     client = G2BClient(os.getenv("API_KEY"))
     return client.fetch_data(job_type, year, month)
@@ -151,6 +215,7 @@ def append_to_year_file(job, year, xml_text):
             f.write(xml_text)
             f.write("\n")
 
+        log(f"💾 파일 저장: {filename}")
         return filename
     except Exception as e:
         log(f"❌ 파일 저장 실패: {e}")
