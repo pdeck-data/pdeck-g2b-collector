@@ -44,7 +44,7 @@ class G2BClient:
             total=3,
             # 408 추가 (Request Timeout)
             status_forcelist=[429, 500, 502, 503, 504, 408],
-            mallowed_methods=["HEAD", "GET", "OPTIONS"],
+            allowed_methods=["HEAD", "GET", "OPTIONS"],
             backoff_factor=2,  # 2초 -> 4초 -> 8초
             raise_on_status=False
         )
