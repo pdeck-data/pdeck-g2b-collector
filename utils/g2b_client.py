@@ -39,14 +39,11 @@ class G2BClient:
         """강화된 세션 설정 - 재시도 및 타임아웃 최적화"""
         session = requests.Session()
 
-        # 재시도 전략 설정
+        # 간단한 재시도 설정 (호환성 문제 해결)
         retry_strategy = Retry(
             total=3,
-            # 408 추가 (Request Timeout)
             status_forcelist=[429, 500, 502, 503, 504, 408],
-            allowed_methods=["HEAD", "GET", "OPTIONS"],
-            backoff_factor=2,  # 2초 -> 4초 -> 8초
-            raise_on_status=False
+            backoff_factor=2
         )
 
         adapter = HTTPAdapter(max_retries=retry_strategy)
@@ -67,22 +64,26 @@ class G2BClient:
 
         operation = self.OPERATION_MAP[job_type]
 
-        # ✅ 2. 지수 님의 훌륭한 날짜 계산 로직 적용
+        # ✅ 수정된 날짜 계산 로직 - 시간 포함
         last_day = calendar.monthrange(year, month)[1]
-        start_dt = f"{year}{month:02d}01"
-        end_dt = f"{year}{month:02d}{last_day}"
+        start_dt = f"{year}{month:02d}010000"        # YYYYMMDDHHMM 형식
+        end_dt = f"{year}{month:02d}{last_day}2359"   # YYYYMMDDHHMM 형식
 
         params = {
-            "serviceKey": self.api_key,
+            "ServiceKey": self.api_key,  # 대문자 S
             "numOfRows": 9999,
             "pageNo": 1,
             "inqryDiv": 1,      # 1: 계약체결일 기준
-            "inqryBgnDate": start_dt,
-            "inqryEndDate": end_dt,
+            "inqryBgnDt": start_dt,      # 수정된 파라미터명
+            "inqryEndDt": end_dt,        # 수정된 파라미터명
             "type": "xml"
         }
 
         url = f"{self.BASE_URL}/{operation}"
+
+        # 디버그 로그 추가
+        log(f"📋 요청 URL: {url}")
+        log(f"📋 전송 파라미터: ServiceKey={self.api_key[:10]}..., inqryBgnDt={start_dt}, inqryEndDt={end_dt}")
 
         for attempt in range(1, retries + 1):
             try:
@@ -160,7 +161,7 @@ class G2BClient:
                             'msg': f"API 호출 제한/인증 오류: {result_msg}"
                         }
 
-                    # [Case 4] 서버 에러 (05 등) -> 재시도 필요
+                    # [Case 4] 서버 에러 (05, 08 등) -> 재시도 필요
                     else:
                         log(f"⚠ API 서버 메시지: {result_msg} (코드: {result_code}) - 재시도")
                         continue
