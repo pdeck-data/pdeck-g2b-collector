@@ -104,12 +104,11 @@ jobs:
           "
 
       # 🚀 메인 수집기 실행 (로그 파일에 기록하며 실행)
-      # 🧪 진단 테스트 실행
       - name: Run G2B Collector
         id: run_collector
         run: |
-          # 진단 테스트로 근본 원인 파악
-          python g2b_diagnostic_test.py 2>&1 | tee collection.log
+          # 표준 출력을 화면과 파일(collection.log)에 동시에 기록
+          python collectors/g2b/collect_all.py 2>&1 | tee collection.log
 
       # 📤 상태 파일(progress.json) Drive에 업로드 (실패해도 실행)
       - name: Upload progress.json
