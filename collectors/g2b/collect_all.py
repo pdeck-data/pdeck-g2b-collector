@@ -130,7 +130,7 @@ def main():
                     local_path, filename = append_to_year_file(job, year, xml_content)
                     
                     # Google Drive에 업로드
-                    upload_success = upload_file(filename, local_path)
+                    upload_success = upload_file(local_path, filename)
                     if upload_success:
                         uploaded_files.append(filename)
                         log(f"☁️ Google Drive 업로드 완료: {filename}")
