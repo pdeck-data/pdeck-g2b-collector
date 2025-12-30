@@ -22,7 +22,7 @@ from utils.slack import send_slack_message
 
 # 설정값
 PROGRESS_FILE_ID = "1_AKg04eOjQy3KBcjhp2xkkm1jzBcAjn-"
-API_KEY = os.getenv("G2B_API_KEY")
+API_KEY = os.getenv("API_KEY")
 MAX_API_CALLS = 500
 
 def append_to_year_file(job, year, xml_content):
@@ -95,6 +95,13 @@ def main():
         log(f"📊 API 사용량: {progress['daily_api_calls']}/{MAX_API_CALLS}")
         
         # API 클라이언트 초기화
+        # API 클라이언트 초기화 (디버깅 추가)
+        log(f"🔑 API_KEY 상태: {len(API_KEY) if API_KEY else 'None'}글자")
+        log(f"🔑 API_KEY 앞자리: {API_KEY[:10] if API_KEY else 'None'}...")
+
+        if not API_KEY:
+            raise Exception("API_KEY 환경변수가 설정되지 않았습니다!")
+
         client = G2BClient(API_KEY)
         
         # 수집할 데이터 계산
