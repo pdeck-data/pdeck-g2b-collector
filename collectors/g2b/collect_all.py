@@ -11,8 +11,8 @@ import sys
 # utils 모듈들 import
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from utils.g2b_client import G2BClient
-from utils.google_drive_client import GoogleDriveClient
-from utils.slack_client import SlackClient
+from utils.drive import GoogleDriveClient
+from utils.slack import SlackClient
 from utils.logger import log
 
 def get_korea_date():
