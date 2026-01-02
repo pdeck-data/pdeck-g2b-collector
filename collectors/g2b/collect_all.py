@@ -7,48 +7,32 @@ from datetime import datetime
 import pytz
 
 # -----------------------------------------------------------
-# 🔍 강력한 경로 자동 탐색 로직 (추측하지 않고 직접 찾음)
+# ⚡️ [최종 솔루션] 경로 강제 지정 (3단계 상위가 무조건 루트다)
 # -----------------------------------------------------------
-def setup_project_path():
-    """utils 폴더가 있는 프로젝트 루트를 찾아 sys.path에 등록"""
-    current_path = os.path.abspath(__file__)
-    check_path = os.path.dirname(current_path)
-    
-    # 상위로 5단계까지 이동하며 'utils' 폴더가 있는지 확인
-    for i in range(5):
-        if os.path.exists(os.path.join(check_path, "utils")):
-            if check_path not in sys.path:
-                sys.path.insert(0, check_path)
-            print(f"✅ 프로젝트 루트 발견 및 경로 추가: {check_path}")
-            
-            # 디버깅: utils 폴더 내부 확인
-            utils_path = os.path.join(check_path, "utils")
-            print(f"ℹ️ utils 폴더 내용: {os.listdir(utils_path)}")
-            return True
-            
-        # 상위 폴더로 이동
-        parent = os.path.dirname(check_path)
-        if parent == check_path: # 더 이상 상위가 없으면 중단
-            break
-        check_path = parent
+# 현재 파일: .../pdeck-g2b-collector/collectors/g2b/collect_all.py
+# 목표 루트: .../pdeck-g2b-collector/ (여기에 utils가 있음)
 
-    # 못 찾았을 경우 디버깅 정보 출력
-    print("❌ 'utils' 폴더를 찾을 수 없습니다!")
-    print(f"현재 위치: {os.path.dirname(current_path)}")
-    print(f"현재 파일 목록: {os.listdir(os.path.dirname(current_path))}")
-    return False
+current_file_path = os.path.abspath(__file__)             # 1. 현재 파일 경로
+g2b_dir = os.path.dirname(current_file_path)              # 2. .../collectors/g2b
+collectors_dir = os.path.dirname(g2b_dir)                 # 3. .../collectors
+project_root = os.path.dirname(collectors_dir)            # 4. .../ (프로젝트 루트)
 
-# 경로 설정 실행
-setup_project_path()
+# 시스템 경로 맨 앞에 프로젝트 루트를 강제로 꽂아넣음
+if project_root not in sys.path:
+    sys.path.insert(0, project_root)
+
+# 디버깅: 경로가 잘 잡혔는지 눈으로 확인 (로그에 찍힘)
+print(f"✅ 프로젝트 루트 강제 지정: {project_root}")
+print(f"📂 루트 폴더 내용물: {os.listdir(project_root)}")
 
 # -----------------------------------------------------------
-# ✅ 이제 모듈 Import (경로가 확실히 잡힌 상태)
+# ✅ 이제 Import는 실패할 수가 없음
 # -----------------------------------------------------------
 try:
     from googleapiclient.http import MediaFileUpload
     from googleapiclient.errors import HttpError
     
-    # 여기서 에러가 나면, 위쪽 print 로그를 통해 원인을 바로 알 수 있음
+    # utils 모듈 로드
     from utils.drive import (
         download_progress_json, 
         upload_progress_json,
@@ -60,7 +44,8 @@ try:
     from utils.auth import get_drive_service
     
 except ImportError as e:
-    print(f"🚫 Import Error 발생: {e}")
+    # 만약 여기서도 에러나면 그건 파일이 없는 거임
+    print(f"\n🚫 치명적 오류: Import 실패. {e}")
     print(f"현재 sys.path: {sys.path}")
     sys.exit(1)
 
@@ -129,10 +114,8 @@ def append_to_year_file(job, year, xml_content):
     """XML 내용을 연도별 파일에 추가"""
     filename = f"{job}_{year}.xml"
     
-    # 🔧 경로 안전성 확보: 절대 경로 사용
-    # setup_project_path()로 찾은 sys.path[0]를 기준으로 data 폴더 생성
-    base_dir = sys.path[0] if sys.path else os.getcwd()
-    data_dir = os.path.join(base_dir, "data")
+    # 🔧 데이터 저장 경로도 프로젝트 루트 기준 data 폴더로 고정
+    data_dir = os.path.join(project_root, "data")
     local_path = os.path.join(data_dir, filename)
     
     # 디렉토리 생성
@@ -285,7 +268,7 @@ def main():
         # Progress 파일 업로드
         upload_success = upload_progress_json(progress, PROGRESS_FILE_ID)
         
-        # 결과 슬랙 전송 (안전한 문자열 연결)
+        # 결과 슬랙 전송 (안전한 포맷팅)
         message = (
             f"🎯 **G2B 수집 완료**\n"
             f"```\n"
