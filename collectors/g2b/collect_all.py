@@ -4,6 +4,7 @@ import sys
 import json
 import traceback
 from datetime import datetime
+import pytz
 
 # 경로 추가
 project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -91,10 +92,18 @@ def main():
             log("❌ progress.json 로드 실패")
             return False
         
+        # ✅ 한국시간 기준 자동 API 리셋 로직
+        korea_tz = pytz.timezone('Asia/Seoul')
+        today_korea = datetime.now(korea_tz).strftime('%Y-%m-%d')
+        
+        if progress.get('last_api_reset_date') != today_korea:
+            progress['daily_api_calls'] = 0
+            progress['last_api_reset_date'] = today_korea
+            log(f"🔄 일일 API 카운트 자동 리셋: {today_korea}")
+        
         log(f"📋 현재 진행상황: {progress['current_job']} {progress['current_year']}년 {progress['current_month']}월")
         log(f"📊 API 사용량: {progress['daily_api_calls']}/{MAX_API_CALLS}")
         
-        # API 클라이언트 초기화
         # API 클라이언트 초기화 (디버깅 추가)
         log(f"🔑 API_KEY 상태: {len(API_KEY) if API_KEY else 'None'}글자")
         log(f"🔑 API_KEY 앞자리: {API_KEY[:10] if API_KEY else 'None'}...")
