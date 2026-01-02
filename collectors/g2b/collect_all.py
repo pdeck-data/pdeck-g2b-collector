@@ -1,38 +1,68 @@
 #!/usr/bin/env python3
 import os
 import sys
-import json
-import traceback
 import time
+import traceback
 from datetime import datetime
 import pytz
 
-# 🔧 경로 설정 개선 (깊이 보정)
-# 현재 파일(.../collectors/g2b/collect_all.py) 기준 3단계 상위 폴더를 루트로 인식
-current_path = os.path.abspath(__file__)
-g2b_dir = os.path.dirname(current_path)             # .../g2b
-collectors_dir = os.path.dirname(g2b_dir)           # .../collectors
-project_root = os.path.dirname(collectors_dir)      # .../ (루트)
+# -----------------------------------------------------------
+# 🔍 강력한 경로 자동 탐색 로직 (추측하지 않고 직접 찾음)
+# -----------------------------------------------------------
+def setup_project_path():
+    """utils 폴더가 있는 프로젝트 루트를 찾아 sys.path에 등록"""
+    current_path = os.path.abspath(__file__)
+    check_path = os.path.dirname(current_path)
+    
+    # 상위로 5단계까지 이동하며 'utils' 폴더가 있는지 확인
+    for i in range(5):
+        if os.path.exists(os.path.join(check_path, "utils")):
+            if check_path not in sys.path:
+                sys.path.insert(0, check_path)
+            print(f"✅ 프로젝트 루트 발견 및 경로 추가: {check_path}")
+            
+            # 디버깅: utils 폴더 내부 확인
+            utils_path = os.path.join(check_path, "utils")
+            print(f"ℹ️ utils 폴더 내용: {os.listdir(utils_path)}")
+            return True
+            
+        # 상위 폴더로 이동
+        parent = os.path.dirname(check_path)
+        if parent == check_path: # 더 이상 상위가 없으면 중단
+            break
+        check_path = parent
 
-# 시스템 경로에 프로젝트 루트 추가 (utils 폴더를 찾기 위함)
-if project_root not in sys.path:
-    sys.path.insert(0, project_root)
+    # 못 찾았을 경우 디버깅 정보 출력
+    print("❌ 'utils' 폴더를 찾을 수 없습니다!")
+    print(f"현재 위치: {os.path.dirname(current_path)}")
+    print(f"현재 파일 목록: {os.listdir(os.path.dirname(current_path))}")
+    return False
+
+# 경로 설정 실행
+setup_project_path()
 
 # -----------------------------------------------------------
-# ✅ 모든 모듈 Import (경로 설정 후 실행)
+# ✅ 이제 모듈 Import (경로가 확실히 잡힌 상태)
 # -----------------------------------------------------------
-from googleapiclient.http import MediaFileUpload
-from googleapiclient.errors import HttpError
-
-from utils.drive import (
-    download_progress_json, 
-    upload_progress_json,
-    test_drive_connection
-)
-from utils.g2b_client import G2BClient
-from utils.logger import log
-from utils.slack import send_slack_message
-from utils.auth import get_drive_service  # 👈 이제 정상 작동함
+try:
+    from googleapiclient.http import MediaFileUpload
+    from googleapiclient.errors import HttpError
+    
+    # 여기서 에러가 나면, 위쪽 print 로그를 통해 원인을 바로 알 수 있음
+    from utils.drive import (
+        download_progress_json, 
+        upload_progress_json,
+        test_drive_connection
+    )
+    from utils.g2b_client import G2BClient
+    from utils.logger import log
+    from utils.slack import send_slack_message
+    from utils.auth import get_drive_service
+    
+except ImportError as e:
+    print(f"🚫 Import Error 발생: {e}")
+    print(f"현재 sys.path: {sys.path}")
+    sys.exit(1)
 
 # 설정값
 PROGRESS_FILE_ID = "1_AKg04eOjQy3KBcjhp2xkkm1jzBcAjn-"
@@ -100,10 +130,8 @@ def append_to_year_file(job, year, xml_content):
     filename = f"{job}_{year}.xml"
     
     # 🔧 경로 안전성 확보: 절대 경로 사용
-    base_dir = os.getcwd() # 보통 프로젝트 루트에서 실행되지만 안전장치
-    if base_dir != project_root:
-        base_dir = project_root
-        
+    # setup_project_path()로 찾은 sys.path[0]를 기준으로 data 폴더 생성
+    base_dir = sys.path[0] if sys.path else os.getcwd()
     data_dir = os.path.join(base_dir, "data")
     local_path = os.path.join(data_dir, filename)
     
@@ -257,7 +285,7 @@ def main():
         # Progress 파일 업로드
         upload_success = upload_progress_json(progress, PROGRESS_FILE_ID)
         
-        # 결과 슬랙 전송
+        # 결과 슬랙 전송 (안전한 문자열 연결)
         message = (
             f"🎯 **G2B 수집 완료**\n"
             f"```\n"
